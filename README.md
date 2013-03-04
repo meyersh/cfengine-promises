@@ -25,6 +25,7 @@ body common control
   inputs => {
               ...
               "system_vmware_tools.cf",
+              "system_extra_package_repos.cf",
               ...
             };
 

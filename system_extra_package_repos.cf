@@ -1,0 +1,47 @@
+bundle agent additional_package_repos 
+{
+#  classes:
+#    centos_6|redhat_6::
+#      "epel_installed" expression => fileexists("/etc/yum.repos.d/epel.repo");
+#     
+
+  vars:
+      "rpmforge_settings[rpmforge][enabled]" int => "0";
+
+  packages:
+    centos_6|redhat_6::
+      "epel-release"
+      handle => "epel_installed",
+      package_policy => "add",
+      package_version => "6-8",
+      package_architectures => { "noarch" },
+      package_method => rpm_filebased("http://mirror.symnds.com/distributions/fedora-epel/6/i386");
+
+      # TODO: Generalize the package_architectures.
+      # Thankfully, almost all of our servers are 64-bit.
+    (centos_6|redhat_6).x86_64::
+      "rpmforge-release"
+      handle => "rpmforge_installed",
+      package_policy => "add",
+      package_version => "0.5.2-2.el6.rf",
+      package_architectures => {"x86_64"},
+      package_method =>
+        rpm_filebased("http://pkgs.repoforge.org/");
+      
+    centos_5|redhat_5::
+      "epel-release"
+      handle => "epel_installed",
+      package_policy => "add",
+      package_version => "5-4",
+      package_architectures => { "noarch" },
+      package_method =>  
+        rpm_filebased("http://mirrors.xmission.com/fedora/epel/5/i386/");
+
+
+  files:
+      "/etc/yum.repos.d/rpmforge.repo"
+      comment => "Ensure that rpmforge IS NOT enabled",
+      depends_on => {"rpmforge_installed"},
+      edit_line => manage_variable_values_ini("additional_package_repos.rpmforge_settings", "rpmforge");
+      
+}
