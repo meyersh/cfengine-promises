@@ -8,10 +8,32 @@ from http://github.com/cfengine/copbl as cfengine_stdlib.cf.
 
 Additionally, we dole out bundle sequences in the following 
 fashion (Important: most general to most specific ordering
-under the methods clause):
+under the methods clause) in ``promises.cf``:
 
 ```cfengine3
-bundle agent mside {
+body common control 
+{
+
+  ...
+
+  bundlesequence => {
+                     ...
+                     "mside",
+                     ...
+                    };
+
+  inputs => {
+              ...
+              "system_vmware_tools.cf",
+              ...
+            };
+
+  ...
+
+}
+
+bundle agent mside 
+{
   vars:
       classes:
       "servers" or => {   "server_A"
