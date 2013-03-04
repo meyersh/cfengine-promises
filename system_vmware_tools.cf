@@ -1,0 +1,96 @@
+bundle agent install_vmware_tools 
+{
+  vars:
+      # This is the path from the vmware packages site.
+      "vmware_version" string => "5.1latest";
+      "package_name"   string => "vmware-tools-esx-nox";
+      
+    ubuntu_12::
+      "ubuntu_name"    string => "precise";
+
+    ubuntu::
+      "sources" slist => 
+      {
+        "deb http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted",
+        "deb-src http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted",
+      };
+
+    redhat_6|centos_6::
+      "redhat_version" string => "rhel6";
+
+    redhat_5|centos_5::
+      "redhat_version" string => "rhel5";      
+      
+    redhat::
+      "gpgkeys" slist => {
+                           "http://packages.vmware.com/tools/keys/VMWARE-PACKAGING-GPG-DSA-KEY.pub",
+                           "http://packages.vmware.com/tools/keys/VMWARE-PACKAGING-GPG-RSA-KEY.pub",
+                         };
+
+      "repo[vmware-tools][name]"     string => "Vmware Tools";
+      "repo[vmware-tools][baseurl]"  string => 
+      "http://packages.vmware.com/tools/esx/$(vmware_version)/$(redhat_version)/$basearch";
+      "repo[vmware-tools][enabled]"  string => "1";
+      "repo[vmware-tools][gpgcheck]" string => "1";
+
+  classes:
+      "vmware_tar_install_present" expression => fileexists("/usr/bin/vmware-uninstall-tools.pl");
+
+  files:
+    redhat_6|centos_6::
+      # Desired file contents:
+      # [vmware-tools]
+      # name=VMware Tools
+      # baseurl=http://packages.vmware.com/tools/esx/$(vmware_version)/rhel6/$basearch
+      # enabled=1
+      # gpgcheck=1
+
+      # If you are running 3.2.1 or earlier or more specifically git commit # or
+      # earlier you can use this to work around the segfault bug.
+      # WEAK!
+
+      # Apparently, this also applies to CFEngine Core 3.4.1 and
+      # CFEngine Enterprise 3.0.0.
+      
+      # However, this work-around causes a warning from yum on every run.
+
+      "/etc/yum.repos.d/vmware-tools.repo"
+      edit_line => append_if_no_line("[#EOF#]"),
+      create => "true",
+      comment => "Work around bug<bug#here> where eof did not mean end
+                  of section and thus cannot select a region. This promise
+                  should be placed before your call to this bundle";
+
+      "/etc/yum.repos.d/vmware-tools.repo"
+      handle => "vmware_tools_repo",
+      create => "true",
+      perms  => m("0644"),
+      edit_line => manage_variable_values_ini("install_vmware_tools.repo", 
+                                           "vmware-tools"),
+      classes => if_repaired("import_keys");
+
+    ubuntu::
+      # Desired file contents:
+      # deb http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted
+      # deb-src http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted
+
+      "/etc/apt/sources.list.d/vmware-ubuntu.list"
+      handle => "vmware_tools_repo",
+      create => "true",
+      edit_line => insert_lines("$sources");
+
+  packages:
+    redhat|ubuntu::
+      "$(package_name)"
+      depends_on => {"vmware_tools_repo"},
+      comment => "Ensure that vmware-tools are installed.",
+      package_policy => "add",
+      package_method => generic;
+      
+  commands:
+    redhat.import_keys::
+      "/bin/rpm --import $(gpgkeys)";
+
+    vmware_tar_install_present.never::
+      "/usr/bin/vmware-uninstall-tools.pl";
+}
