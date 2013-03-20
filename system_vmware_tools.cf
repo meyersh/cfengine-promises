@@ -1,7 +1,7 @@
 bundle agent install_vmware_tools 
 {
-      # TODO: This bundle could be changed (perhaps) to use the repo
-      # packages at:
+      # This bundle uses the repo packages at for redhat-based
+      # distros:
       # http://packages.vmware.com/tools/esx/5.1latest/repos/
 
   vars:
@@ -11,6 +11,9 @@ bundle agent install_vmware_tools
       
     ubuntu_12::
       "ubuntu_name"    string => "precise";
+
+    ubuntu_11::
+      "ubuntu_name"    string => "oneiric";
 
     ubuntu::
       "sources" slist => 
