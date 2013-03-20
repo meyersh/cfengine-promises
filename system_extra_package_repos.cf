@@ -6,7 +6,12 @@ bundle agent additional_package_repos
 #     
 
   vars:
+      # REPO settings
       "rpmforge_settings[rpmforge][enabled]" int => "0";
+      "rpmforge_settings[rpmforge][exclude]" string => "perl-Apache-Test*";
+
+      "openfusion_settings[of][enabled]" int => "0";
+      "openfusion_settings[of][exclude]" string => "perl-Apache-Test*";
 
   packages:
     centos_6|redhat_6::
@@ -17,8 +22,16 @@ bundle agent additional_package_repos
       package_architectures => { "noarch" },
       package_method => rpm_filebased("http://mirror.symnds.com/distributions/fedora-epel/6/i386");
 
+      # Both x86_64 and i386 versions of this package are IDENTICAL.
+      "openfusion-release"
+      handle => "openfusion_installed",
+      package_version => "0.6.2-1.of.el6",
+      package_architectures => { "noarch" },
+      package_method => 
+        rpm_filebased("http://repo.openfusion.net/centos6-x86_64/");   
+
       # TODO: Generalize the package_architectures.
-      # Thankfully, almost all of our servers are 64-bit.
+      # I see that i686 and x86_64 packages differ.
     (centos_6|redhat_6).x86_64::
       "rpmforge-release"
       handle => "rpmforge_installed",
@@ -42,6 +55,11 @@ bundle agent additional_package_repos
       "/etc/yum.repos.d/rpmforge.repo"
       comment => "Ensure that rpmforge IS NOT enabled",
       depends_on => {"rpmforge_installed"},
-      edit_line => manage_variable_values_ini("additional_package_repos.rpmforge_settings", "rpmforge");
+      edit_line => set_variable_values_ini("additional_package_repos.rpmforge_settings", "rpmforge");
+
+      "/etc/yum.repos.d/openfusion.repo"
+      comment => "Ensure that openfusion IS NOT enabled",
+      depends_on => {"openfusion_installed"},
+      edit_line => set_variable_values_ini("additional_package_repos.openfusion_settings", "of");
       
 }
