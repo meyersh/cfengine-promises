@@ -21,64 +21,22 @@ bundle agent install_vmware_tools
 
     redhat_6|centos_6::
       "redhat_version" string => "rhel6";
+      "redhat_flavor"    string => "RHEL6";
 
     redhat_5|centos_5::
       "redhat_version" string => "rhel5";      
-      
-    redhat::
-      "gpgkeys" slist => {
-                           "http://packages.vmware.com/tools/keys/VMWARE-PACKAGING-GPG-DSA-KEY.pub",
-                           "http://packages.vmware.com/tools/keys/VMWARE-PACKAGING-GPG-RSA-KEY.pub",
-                         };
-
-      "repo[vmware-tools][name]"     string => "Vmware Tools";
-      "repo[vmware-tools][baseurl]"  string => 
-      "http://packages.vmware.com/tools/esx/$(vmware_version)/$(redhat_version)/$basearch";
-      "repo[vmware-tools][enabled]"  string => "1";
-      "repo[vmware-tools][gpgcheck]" string => "1";
-
-
+      "redhat_flavor"    string => "RHEL5";
 
   classes:
+    linux::
+
       "vmware_tar_install_present" expression => fileexists("/usr/bin/vmware-uninstall-tools.pl");
       
-    linux::
       # Define "vmware_vm" class when VMware is in the Product Name.
-      "vmware_vm" expression => returnszero("/usr/sbin/dmidecode | /bin/grep 'Product Name: VMware'",
+      "vmware_vm" expression => returnszero("/usr/sbin/dmidecode | /bin/grep 'Product Name: VMware' > /dev/null",
                                             "useshell");
 
   files:
-    vmware_vm.(redhat_6|centos_6)::
-      # Desired file contents:
-      # [vmware-tools]
-      # name=VMware Tools
-      # baseurl=http://packages.vmware.com/tools/esx/$(vmware_version)/rhel6/$basearch
-      # enabled=1
-      # gpgcheck=1
-
-      # If you are running 3.2.1 or earlier or more specifically git commit # or
-      # earlier you can use this to work around the segfault bug.
-      # WEAK!
-
-      # Apparently, this also applies to CFEngine Core 3.4.1 and
-      # CFEngine Enterprise 3.0.0.
-      
-      # However, this work-around causes a warning from yum on every run.
-
-      "/etc/yum.repos.d/vmware-tools.repo"
-      edit_line => append_if_no_line("[#EOF#]"),
-      create => "true",
-      comment => "Work around bug<bug#here> where eof did not mean end
-of section and thus cannot select a region. This promise
-should be placed before your call to this bundle";
-
-      "/etc/yum.repos.d/vmware-tools.repo"
-      handle => "vmware_tools_repo",
-      create => "true",
-      perms  => m("0644"),
-      edit_line => manage_variable_values_ini("install_vmware_tools.repo", 
-                                              "vmware-tools"),
-      classes => if_repaired("import_keys");
 
     vmware_vm.ubuntu::
       # Desired file contents:
@@ -91,11 +49,27 @@ should be placed before your call to this bundle";
       edit_line => insert_lines("$sources");
 
   packages:
+    vmware_vm.redhat::
+      # http://packages.vmware.com/tools/esx/5.1latest/repos/vmware-tools-repo-RHEL5-9.0.1-2.i686.rpm
+      "vmware-tools-repo"
+      handle => "vmware_tools_repo",
+      package_policy => "add",
+      package_version => "$(redhat_flavor)-9.0.1-2",
+      package_architectures => { "$(sys.arch)" },
+      package_method => rpm_filebased("http://packages.vmware.com/tools/esx/$(vmware_version)/repos");
+      
     vmware_vm.(redhat|ubuntu)::
       "$(package_name)"
       depends_on => {"vmware_tools_repo"},
       comment => "Ensure that vmware-tools are installed.",
       handle => "vmware_tools_installed",
+      package_policy => "add",
+      package_method => generic;
+      
+    linux::
+      "dmidecode"
+      handle => "dmidecode_installed",
+      comment => "dmidecode is required to determine if a machine is a VMWare VM.",
       package_policy => "add",
       package_method => generic;
       
