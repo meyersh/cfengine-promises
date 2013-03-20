@@ -1,5 +1,9 @@
 bundle agent install_vmware_tools 
 {
+      # TODO: This bundle could be changed (perhaps) to use the repo
+      # packages at:
+      # http://packages.vmware.com/tools/esx/5.1latest/repos/
+
   vars:
       # This is the path from the vmware packages site.
       "vmware_version" string => "5.1latest";
@@ -33,11 +37,18 @@ bundle agent install_vmware_tools
       "repo[vmware-tools][enabled]"  string => "1";
       "repo[vmware-tools][gpgcheck]" string => "1";
 
+
+
   classes:
       "vmware_tar_install_present" expression => fileexists("/usr/bin/vmware-uninstall-tools.pl");
+      
+    linux::
+      # Define "vmware_vm" class when VMware is in the Product Name.
+      "vmware_vm" expression => returnszero("/usr/sbin/dmidecode | /bin/grep 'Product Name: VMware'",
+                                            "useshell");
 
   files:
-    redhat_6|centos_6::
+    vmware_vm.(redhat_6|centos_6)::
       # Desired file contents:
       # [vmware-tools]
       # name=VMware Tools
@@ -58,18 +69,18 @@ bundle agent install_vmware_tools
       edit_line => append_if_no_line("[#EOF#]"),
       create => "true",
       comment => "Work around bug<bug#here> where eof did not mean end
-                  of section and thus cannot select a region. This promise
-                  should be placed before your call to this bundle";
+of section and thus cannot select a region. This promise
+should be placed before your call to this bundle";
 
       "/etc/yum.repos.d/vmware-tools.repo"
       handle => "vmware_tools_repo",
       create => "true",
       perms  => m("0644"),
       edit_line => manage_variable_values_ini("install_vmware_tools.repo", 
-                                           "vmware-tools"),
+                                              "vmware-tools"),
       classes => if_repaired("import_keys");
 
-    ubuntu::
+    vmware_vm.ubuntu::
       # Desired file contents:
       # deb http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted
       # deb-src http://packages.vmware.com/tools/esx/$(vmware_version)/ubuntu $(ubuntu_name) main restricted
@@ -80,17 +91,19 @@ bundle agent install_vmware_tools
       edit_line => insert_lines("$sources");
 
   packages:
-    redhat|ubuntu::
+    vmware_vm.(redhat|ubuntu)::
       "$(package_name)"
       depends_on => {"vmware_tools_repo"},
       comment => "Ensure that vmware-tools are installed.",
+      handle => "vmware_tools_installed",
       package_policy => "add",
       package_method => generic;
       
   commands:
-    redhat.import_keys::
+    vmware_vm.redhat.import_keys::
       "/bin/rpm --import $(gpgkeys)";
 
-    vmware_tar_install_present.never::
-      "/usr/bin/vmware-uninstall-tools.pl";
+    vmware_vm.vmware_tar_install_present.never::
+      "/usr/bin/vmware-uninstall-tools.pl"
+      depends_on => {"vmware_tools_installed"};
 }
